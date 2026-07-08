@@ -2,7 +2,6 @@
 Sistema de predicción de fútbol con enfoque en apuestas (value bets)
 Streamlit + Football-Data.org + Modelo Poisson
 """
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,7 +10,6 @@ from sklearn.metrics import accuracy_score, mean_absolute_error
 import requests
 from io import StringIO
 from datetime import datetime, timedelta
-
 # ------------------------------------------------------------
 # 0. AUTENTICACIÓN POR CLAVE (SUSCRIPCIÓN)
 # ------------------------------------------------------------
@@ -25,32 +23,38 @@ if not st.session_state.autenticado:
     
     # Cargar claves desde los secretos de Streamlit
     try:
-        claves_validas = st.secrets["claves"]  # diccionario {clave: fecha_expiracion}
+        claves_validas = st.secrets["claves"]
     except:
-        # Fallback para desarrollo local (luego lo movemos a secrets.toml)
         claves_validas = {
-            "demo123": "2026-08-07",  # clave de prueba, caduca el 7 de agosto de 2026
+            "demo123": "2026-08-07",
         }
     
     if st.button("Acceder"):
         if clave in claves_validas:
-            expiracion_str = claves_validas[clave]
-            if expiracion_str == "perpetua":
+            expiracion_str = str(claves_validas[clave]).strip().strip('"').strip("'")
+            if expiracion_str.lower() == "perpetua":
                 st.session_state.autenticado = True
                 st.rerun()
             else:
-                try:
-                    expiracion = datetime.strptime(expiracion_str, "%Y-%m-%d").date()
-                    if datetime.now().date() <= expiracion:
-                        st.session_state.autenticado = True
-                        st.rerun()
-                    else:
-                        st.error("❌ Tu suscripción ha caducado. Contacta para renovarla.")
-                except:
-                    st.error("Error en la fecha de expiración. Contacta al administrador.")
+                # Intentar varios formatos de fecha
+                expiracion = None
+                for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+                    try:
+                        expiracion = datetime.strptime(expiracion_str, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if expiracion is None:
+                    st.error(f"Formato de fecha no reconocido: '{expiracion_str}'. Contacta al administrador.")
+                elif datetime.now().date() <= expiracion:
+                    st.session_state.autenticado = True
+                    st.rerun()
+                else:
+                    st.error("❌ Tu suscripción ha caducado. Contacta para renovarla.")
         else:
             st.error("❌ Clave incorrecta.")
-    st.stop()  # Detiene la ejecución, no carga el resto de la app
+    st.stop()
+
 
 # ------------------------------------------------------------
 # 1. CONFIGURACIÓN
